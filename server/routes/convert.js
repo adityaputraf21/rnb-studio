@@ -15,16 +15,28 @@ const upload = multer({ dest: TMP_DIR, limits: { fileSize: 100 * 1024 * 1024 } }
 // Link-based convert: `url` here should be the actual downloadable source.
 // For YouTube/SoundCloud/TikTok that's the original link (or a RapidAPI
 // direct MP3 link for YouTube, handled inside ytdlp.downloadAudio). For
-// Spotify/Apple Music, `direct: true` means the resolver already got us a
-// ready-to-fetch MP3 URL (e.g. RapidAPI's Spotify downloader) — no yt-dlp
-// needed at all in that case.
+// Spotify, `direct: true` means the resolver already got us a ready-to-fetch
+// MP3 URL — but those links can be short-lived/single-use, so if we have the
+// original Spotify URL we re-resolve fresh right before downloading instead
+// of reusing the (possibly stale) link from the earlier /api/resolve call.
 router.post("/", requireAuth, checkUsageLimit, async (req, res) => {
-  const { url, speed, amplifyDb, pitch, format, title, artist, direct } = req.body;
+  const { url, speed, amplifyDb, pitch, format, title, artist, direct, platform, originUrl } = req.body;
   if (!url) return res.status(400).json({ error: "url wajib diisi" });
 
   let rawPath;
   try {
-    rawPath = direct ? await ytdlp.downloadDirect(url) : await ytdlp.downloadAudio(url);
+    let downloadUrl = url;
+    if (direct && platform === "spotify" && originUrl) {
+      try {
+        const rapidapiSpotify = require("../services/rapidapiSpotify");
+        const fresh = await rapidapiSpotify.resolve(originUrl);
+        downloadUrl = fresh.directAudioUrl;
+      } catch (err) {
+        console.error("Gagal re-resolve link Spotify fresh, pakai link lama:", err.message);
+      }
+    }
+
+    rawPath = direct ? await ytdlp.downloadDirect(downloadUrl) : await ytdlp.downloadAudio(downloadUrl);
     const { outPath, pitchApplied } = await ffmpeg.process(rawPath, {
       speed: Number(speed) || 1.0,
       amplifyDb: Number(amplifyDb) || 0,
