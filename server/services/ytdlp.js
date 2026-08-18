@@ -125,8 +125,17 @@ async function getInfoGeneric(url) {
 // just fetch and save.
 async function downloadDirect(url) {
   const fetch = require("node-fetch");
-  const res = await fetch(url, { timeout: 60000 });
-  if (!res.ok) throw new Error(`Gagal download file (HTTP ${res.status})`);
+  // Some CDNs (e.g. the ones behind third-party downloader APIs) reject
+  // requests without a browser-like User-Agent, returning a 404 to obscure
+  // the real reason. Sending one fixes that.
+  const res = await fetch(url, {
+    timeout: 60000,
+    headers: {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+      Accept: "*/*",
+    },
+  });
+  if (!res.ok) throw new Error(`Gagal download file (HTTP ${res.status}) — link mungkin sudah kadaluarsa, coba search ulang.`);
 
   const id = uuid();
   const outPath = path.join(TMP_DIR, `${id}.raw.mp3`);
