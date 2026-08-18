@@ -257,3 +257,258 @@ sound:Play()`;
 function showScriptCard(speed, assetId) {
   const speedNum = Number(speed);
   els.scriptOutput.value = buildRobloxScript(speedNum, assetId);
+  els.scriptNote.textContent =
+    speedNum > 2
+      ? `⚠ Speed ${speedNum}x melebihi batas kompensasi penuh Roblox (maks 2.0x) — nada bakal masih dikit lebih rendah dari aslinya.`
+      : `Kompensasi lengkap tersedia buat speed ${speedNum}x ini.`;
+  els.scriptCard.classList.remove("hidden");
+}
+
+els.copyScriptBtn.addEventListener("click", () => {
+  navigator.clipboard.writeText(els.scriptOutput.value).then(() => {
+    const original = els.copyScriptBtn.textContent;
+    els.copyScriptBtn.textContent = "✅ Copied!";
+    setTimeout(() => (els.copyScriptBtn.textContent = original), 1500);
+  }).catch(() => logLine("Gagal copy, select manual aja dari textarea-nya.", "err"));
+});
+function setStatus(text, cls) { els.status.textContent = text; els.status.className = cls || ""; }
+
+// ---------- advanced settings ----------
+let advOpen = true;
+els.advToggle.addEventListener("click", () => {
+  advOpen = !advOpen;
+  document.querySelector(".grid2").parentElement.querySelectorAll(".field-box, .convert-btn, .convert-result").forEach(() => {});
+  const body = document.querySelectorAll(".grid2, .field-box.full, #convertBtn, #convertResult");
+  body.forEach((el) => (el.style.display = advOpen ? "" : "none"));
+  els.advArrow.textContent = advOpen ? "▲" : "▼";
+});
+
+els.speedSlider.addEventListener("input", () => {
+  const speed = Number(els.speedSlider.value);
+  els.speedVal.textContent = `${speed.toFixed(2)}x`;
+  els.playbackNormalVal.textContent = (1 / speed).toFixed(2);
+
+  const octaveCapped = Math.min(speed, 2);
+  els.pitchCompensationVal.textContent = octaveCapped.toFixed(2);
+  els.pitchCapNote.classList.toggle("hidden", speed <= 2);
+});
+els.ampSlider.addEventListener("input", () => { els.ampVal.textContent = `${els.ampSlider.value}dB`; });
+els.pitchSlider.addEventListener("input", () => {
+  const val = Number(els.pitchSlider.value);
+  els.pitchVal.textContent = `${val > 0 ? "+" : ""}${val}st`;
+});
+
+const FORMAT_DETAILS = { mp3: { label: "High quality audio", value: "192 kbps" }, ogg: { label: "Smaller file size", value: "~128 kbps (VBR)" } };
+els.formatSelect.addEventListener("change", () => {
+  const d = FORMAT_DETAILS[els.formatSelect.value] || FORMAT_DETAILS.mp3;
+  els.formatDetailLabel.textContent = d.label;
+  els.formatDetailValue.textContent = d.value;
+});
+
+els.resetDefaultBtn.addEventListener("click", (e) => {
+  e.stopPropagation();
+  els.speedSlider.value = 2.0;
+  els.ampSlider.value = -4;
+  els.pitchSlider.value = 12;
+  els.formatSelect.value = "mp3";
+  els.speedSlider.dispatchEvent(new Event("input"));
+  els.ampSlider.dispatchEvent(new Event("input"));
+  els.pitchSlider.dispatchEvent(new Event("input"));
+  els.formatSelect.dispatchEvent(new Event("change"));
+  logLine("Advanced settings direset ke default.", "");
+});
+
+// ---------- convert ----------
+els.convertBtn.addEventListener("click", async () => {
+  if (!state.track) return logLine("Search / pilih file dulu sebelum convert.", "err");
+
+  els.convertBtn.disabled = true;
+  els.convertBtn.textContent = "⏳ Converting...";
+  els.convertResult.classList.add("hidden");
+
+  try {
+    let convertData;
+    if (state.platform === "upload" && state.selectedFile) {
+      const form = new FormData();
+      form.append("file", state.selectedFile);
+      form.append("speed", els.speedSlider.value);
+      form.append("amplifyDb", els.ampSlider.value);
+      form.append("pitch", els.pitchSlider.value);
+      form.append("format", els.formatSelect.value);
+      form.append("title", state.track.title);
+      form.append("artist", state.track.artist || "");
+
+      const res = await fetch("/api/convert/upload-file", { method: "POST", headers: authHeaders(), body: form });
+      convertData = await res.json();
+      if (res.status === 429) { logLine(convertData.error, "err"); els.upgradeBtn.click(); return; }
+      if (!res.ok) throw new Error(convertData.error);
+    } else {
+      const res = await fetch("/api/convert", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders() },
+        body: JSON.stringify({
+          url: state.track.sourceUrl,
+          speed: els.speedSlider.value,
+          amplifyDb: els.ampSlider.value,
+          pitch: els.pitchSlider.value,
+          format: els.formatSelect.value,
+          title: state.track.title,
+          artist: state.track.artist,
+          direct: !!state.track.direct,
+          platform: state.platform,
+          originUrl: state.track.originUrl,
+        }),
+      });
+      convertData = await res.json();
+      if (res.status === 429) { logLine(convertData.error, "err"); els.upgradeBtn.click(); return; }
+      if (!res.ok) throw new Error(convertData.error);
+    }
+
+    logLine(`Convert selesai: ${convertData.title} (${convertData.sizeMb} MB, ${convertData.format})`, "ok");
+    if (Number(els.pitchSlider.value) !== 0 && convertData.pitchApplied === false) {
+      logLine("⚠ Pitch gak ke-apply (ffmpeg server gak punya filter rubberband). Hasil convert cuma kena speed/amplify.", "err");
+    }
+    state.fileId = convertData.fileId;
+    state.convertedMeta = convertData;
+    loadMe();
+
+    els.resultTitle.textContent = convertData.title;
+    els.resultMeta.textContent = `${convertData.artist} · ${convertData.sizeMb} MB · ${convertData.format}`;
+    els.convertResult.classList.remove("hidden");
+    showScriptCard(els.speedSlider.value, null);
+  } catch (err) {
+    logLine(`Gagal: ${err.message}`, "err");
+  } finally {
+    els.convertBtn.disabled = false;
+    els.convertBtn.textContent = "📄 Convert";
+  }
+});
+
+// ---------- download ----------
+els.downloadBtn.addEventListener("click", async () => {
+  if (!state.fileId) return;
+  els.downloadBtn.disabled = true;
+  els.downloadBtn.textContent = "⏳ Menyiapkan...";
+  try {
+    const nameParam = encodeURIComponent(state.convertedMeta?.title || "audio");
+    const res = await fetch(`/api/convert/file/${state.fileId}?name=${nameParam}`, { headers: authHeaders() });
+    if (!res.ok) throw new Error("Gagal download file");
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${state.convertedMeta?.title || "audio"}.${state.convertedMeta?.format || "mp3"}`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    logLine("File berhasil di-download.", "ok");
+  } catch (err) {
+    logLine(`Gagal download: ${err.message}`, "err");
+  } finally {
+    els.downloadBtn.disabled = false;
+    els.downloadBtn.textContent = "⬇ Download";
+  }
+});
+
+// ---------- upload to Roblox ----------
+els.uploadBtn.addEventListener("click", async () => {
+  if (!state.fileId) return logLine("Convert dulu sebelum upload.", "err");
+  const creatorRaw = els.creatorSelect.value;
+  if (!creatorRaw) return logLine("Pilih Target Creator dulu.", "err");
+  const apiKey = els.apiKeyInput.value.trim();
+  if (!apiKey) return logLine("Isi Open Cloud API Key dulu.", "err");
+
+  els.uploadBtn.disabled = true;
+  els.uploadBtn.textContent = "⏳ Uploading...";
+  try {
+    const res = await fetch("/api/upload", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...authHeaders() },
+      body: JSON.stringify({
+        fileId: state.fileId,
+        displayName: state.convertedMeta.title,
+        artist: state.convertedMeta.artist,
+        description: `Uploaded via RNB Studio`,
+        creator: JSON.parse(creatorRaw),
+        apiKey,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+    if (data.pending) logLine(`Upload terkirim, masih diproses Roblox (pending). Cek Audio History nanti.`, "ok");
+    else {
+      logLine(`Upload berhasil! Asset ID: ${data.assetId}`, "ok");
+      showScriptCard(els.speedSlider.value, data.assetId); // update script with the real Asset ID
+    }
+  } catch (err) {
+    logLine(`Gagal: ${err.message}`, "err");
+  } finally {
+    els.uploadBtn.disabled = false;
+    els.uploadBtn.textContent = "☁ Upload ke Roblox";
+  }
+});
+
+function logLine(text, cls) {
+  const div = document.createElement("div");
+  div.textContent = `> ${text}`;
+  if (cls === "ok") div.className = "line-ok";
+  if (cls === "err") div.className = "line-err";
+  els.log.prepend(div);
+}
+
+// ---------- upgrade / payment ----------
+let midtransConfigLoaded = false;
+async function ensureMidtransScript() {
+  if (midtransConfigLoaded) return;
+  const res = await fetch("/api/payment/config");
+  const cfg = await res.json();
+  if (!cfg.clientKey) return;
+  const script = document.createElement("script");
+  script.src = cfg.isProduction ? "https://app.midtrans.com/snap/snap.js" : "https://app.sandbox.midtrans.com/snap/snap.js";
+  script.setAttribute("data-client-key", cfg.clientKey);
+  document.head.appendChild(script);
+  midtransConfigLoaded = true;
+}
+els.upgradeBtn.addEventListener("click", async () => {
+  els.upgradeModal.classList.remove("hidden");
+  await ensureMidtransScript();
+  try {
+    const res = await fetch("/api/payment/plans");
+    const data = await res.json();
+    els.planOptions.innerHTML = Object.entries(data.plans)
+      .map(([key, plan]) => `<div class="plan-card" data-plan="${key}"><span>${plan.label}</span><span class="price">Rp ${plan.price.toLocaleString("id-ID")}</span></div>`)
+      .join("");
+    els.planOptions.querySelectorAll(".plan-card").forEach((card) => card.addEventListener("click", () => startCheckout(card.dataset.plan)));
+  } catch {
+    els.planOptions.innerHTML = `<div class="plan-card muted">Gagal load plan.</div>`;
+  }
+});
+els.closeModalBtn.addEventListener("click", () => els.upgradeModal.classList.add("hidden"));
+
+async function startCheckout(plan) {
+  try {
+    const res = await fetch("/api/payment/checkout", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...authHeaders() },
+      body: JSON.stringify({ plan }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+    els.upgradeModal.classList.add("hidden");
+    if (window.snap) {
+      window.snap.pay(data.token, {
+        onSuccess: () => { logLine("Pembayaran berhasil! Akun kamu jadi Premium.", "ok"); loadMe(); },
+        onPending: () => logLine("Pembayaran pending.", ""),
+        onError: () => logLine("Pembayaran gagal.", "err"),
+        onClose: () => logLine("Kamu menutup jendela pembayaran.", ""),
+      });
+    } else if (data.redirectUrl) window.location.href = data.redirectUrl;
+  } catch (err) {
+    logLine(`Gagal mulai checkout: ${err.message}`, "err");
+  }
+}
+
+// init
+loadCreds();
+loadMe();
