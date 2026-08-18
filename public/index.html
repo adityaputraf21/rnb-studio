@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>RNB Studio — Audio Converter buat Roblox</title>
+<link rel="stylesheet" href="style.css" />
+<link rel="stylesheet" href="landing.css" />
+</head>
+<body>
+
+<header class="lp-header">
+  <div class="lp-brand"><span class="logo-dot">🎧</span> RNB Studio</div>
+  <a href="login.html" class="lp-nav-cta">Masuk</a>
+</header>
+
+<main>
+
+  <section class="lp-hero">
+    <div class="lp-hero-badge">🔊 Convert &amp; upload ke Roblox dalam sekali klik</div>
+    <h1>Audio dari mana aja,<br />langsung jadi <span class="accent">Roblox Asset</span>.</h1>
+    <p class="lp-hero-sub">
+      RNB Studio ambil audio dari YouTube, Spotify, SoundCloud, TikTok, Apple Music — atau file kamu sendiri —
+      atur speed &amp; pitch-nya, terus upload langsung ke Roblox lewat Open Cloud API. Gak perlu pindah-pindah tools.
+    </p>
+    <div class="lp-hero-actions">
+      <a href="login.html" class="lp-cta-primary">🎮 Masuk pakai Discord</a>
+      <a href="#features" class="lp-cta-secondary">Lihat fitur ↓</a>
+    </div>
+  </section>
+
+  <section class="lp-platforms">
+    <p class="lp-platforms-label">Support convert dari</p>
+    <div class="lp-platform-chips">
+      <span class="chip">▶ YouTube</span>
+      <span class="chip">◉ Spotify</span>
+      <span class="chip">☁ SoundCloud</span>
+      <span class="chip">♪ TikTok</span>
+      <span class="chip">🎵 Apple Music</span>
+      <span class="chip">⬆ Upload MP3</span>
+    </div>
+  </section>
+
+  <section id="features" class="lp-features">
+    <h2>Semua yang kamu butuhin, dalam satu dashboard</h2>
+
+    <div class="lp-feature-grid">
+      <div class="lp-feature-card">
+        <div class="lp-feature-icon">🎛️</div>
+        <h3>Speed, Pitch &amp; Amplify</h3>
+        <p>Atur kecepatan, nada, dan volume audio hasil convert — pakai time-stretch berkualitas tinggi (rubberband), bukan cuma resample kasar yang bikin suara jadi berat/aneh.</p>
+      </div>
+      <div class="lp-feature-card">
+        <div class="lp-feature-icon">☁️</div>
+        <h3>Upload Langsung ke Roblox</h3>
+        <p>Sekali klik, file hasil convert langsung ke-upload sebagai Audio asset ke akun atau Group Roblox kamu lewat Open Cloud API resmi.</p>
+      </div>
+      <div class="lp-feature-card">
+        <div class="lp-feature-icon">📜</div>
+        <h3>Script Roblox Otomatis</h3>
+        <p>Dapet script Lua siap pakai buat kompensasi PlaybackSpeed &amp; pitch, biar suara di dalam game tetap sinkron sesuai pengaturan kamu.</p>
+      </div>
+      <div class="lp-feature-card">
+        <div class="lp-feature-icon">🕘</div>
+        <h3>Audio History</h3>
+        <p>Semua riwayat convert &amp; upload kesimpen rapi — filter status Active/Pending/Removed, cari cepat, dan export ke CSV kapan aja.</p>
+      </div>
+      <div class="lp-feature-card">
+        <div class="lp-feature-icon">🔄</div>
+        <h3>Status Real-Time</h3>
+        <p>Status upload yang masih diproses Roblox otomatis dicek ulang di background, jadi kamu gak perlu bolak-balik refresh manual.</p>
+      </div>
+      <div class="lp-feature-card">
+        <div class="lp-feature-icon">🔐</div>
+        <h3>Login Discord</h3>
+        <p>Gak ada password buat diinget — masuk langsung pakai akun Discord kamu, aman dan cepat.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="lp-tiers">
+    <h2>Gratis buat mulai, upgrade kalau butuh lebih</h2>
+    <div class="lp-tier-grid">
+      <div class="lp-tier-card">
+        <div class="lp-tier-name">Free</div>
+        <div class="lp-tier-price">Rp0</div>
+        <ul>
+          <li>2x convert per hari</li>
+          <li>Semua platform didukung</li>
+          <li>Upload langsung ke Roblox</li>
+          <li>Audio History</li>
+        </ul>
+      </div>
+      <div class="lp-tier-card lp-tier-highlight">
+        <div class="lp-tier-badge">Populer</div>
+        <div class="lp-tier-name">Premium</div>
+        <div class="lp-tier-price">Mulai Rp25rb<span>/bulan</span></div>
+        <ul>
+          <li>Convert unlimited, tanpa batas harian</li>
+          <li>Semua fitur Free</li>
+          <li>Prioritas dukungan</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="lp-final-cta">
+    <h2>Siap convert lagu pertama kamu?</h2>
+    <a href="login.html" class="lp-cta-primary">🎮 Masuk pakai Discord, Gratis</a>
+  </section>
+
+</main>
+
+<footer class="lp-footer">
+  <span>RNB Studio</span>
+  <span class="muted">Convert audio buat Roblox — YouTube, Spotify, SoundCloud, TikTok, Apple Music &amp; upload manual.</span>
+</footer>
+
+<script src="auth-common.js"></script>
+<script>
+  // Already logged in? Skip straight to the app instead of showing the landing page again.
+  if (getToken()) window.location.href = "app.html";
+</script>
+</body>
+</html>
